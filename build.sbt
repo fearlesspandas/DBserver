@@ -13,6 +13,12 @@ libraryDependencies += "io.d11" %% "zhttp" % "1.0.0.0-RC23"
 libraryDependencies += "javax.vecmath" % "vecmath" % "1.5.2"
 // https://mvnrepository.com/artifact/dev.zio/zio-json
 libraryDependencies += "dev.zio" %% "zio-json" % "0.1.5"
+// https://mvnrepository.com/artifact/org.bouncycastle/bcutil-jdk15on
+libraryDependencies += "org.bouncycastle" % "bcutil-jdk15on" % "1.70"
+// https://mvnrepository.com/artifact/org.bouncycastle/bcprov-jdk15on
+libraryDependencies += "org.bouncycastle" % "bcprov-jdk15on" % "1.70"
+// https://mvnrepository.com/artifact/org.bouncycastle/bcpkix-jdk15on
+libraryDependencies += "org.bouncycastle" % "bcpkix-jdk15on" % "1.70"
 
 
 //// https://mvnrepository.com/artifact/dev.zio/zio-streams

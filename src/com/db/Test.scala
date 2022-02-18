@@ -10,7 +10,7 @@ import BigInt._
  */
 object DiffieHellmannKeyExchange {
   // Either Alice or Bob generates a prime p and a random base g (which are both public)
-  val p = BigInt(64, 100, new SecureRandom)       //> p  : scala.math.BigInt = 13597010238923887999
+  val p = BigInt(32, 100, new SecureRandom)       //> p  : scala.math.BigInt = 13597010238923887999
   val g = Random.nextInt(100)                     //> g  : Int = 16
 
   // Random private key generation
@@ -25,5 +25,11 @@ object DiffieHellmannKeyExchange {
   val sAlice = B.modPow(a, p)                     //> sAlice  : scala.math.BigInt = 11113420747582081577
   val sBob = A.modPow(b, p)                       //> sBob  : scala.math.BigInt = 11113420747582081577
 
-  sAlice == sBob                                  //> res0: Boolean = true
+  sAlice == sBob
+
+  //> res0: Boolean = true
+
+  def main(args:Array[String]):Unit = {
+    print(sAlice,sBob,a,b,A,B,p,g)
+  }
 }

@@ -3,7 +3,7 @@ package src.com.db
 
 
 object Action{
-  def fromString(raw:String,id:Long):Option[Action]  = raw match {
+  def fromString(raw:String,id:String):Option[Action]  = raw match {
     case "w" => Some(UpdateUserDirection(id,(FORWARD,FORWARD)))
     case "a" => Some(UpdateUserDirection(id,(LEFT,LEFT)))
     case "s" => Some(UpdateUserDirection(id,(RIGHT,RIGHT)))
@@ -38,4 +38,4 @@ case object UP extends Direction{
 case object DOWN extends Direction{
   val normal = Vector3(0,-1,0)
 }
-case class UpdateUserDirection(key: Long, value: (Direction,Direction)) extends Action
+case class UpdateUserDirection(key: String, value: (Direction,Direction)) extends Action
