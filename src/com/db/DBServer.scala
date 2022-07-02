@@ -20,13 +20,13 @@ import zio.json._
 import zio.console._
 object DBServer extends App {
 
-  type PubKey = String //Array[Byte]
-
-  Security.addProvider(new BouncyCastleProvider())
+  type PubKey = String
   type SessionToken = String
   type EncryptedSessionToken = String
-  val session_map: Map[PubKey, SessionToken] = Map()
-  val player_map: Map[PubKey, Player] = Map()
+  type SessionMap = scala.collection.concurrent.Map[PubKey, SessionToken]
+  type PlayerMap = Map[PubKey, Player]
+  val session_map: SessionMap = scala.collection.concurrent.TrieMap()
+  val player_map: PlayerMap = Map()
 
   val app2: Http[Console, Throwable, Request, Response] = for{
     ref <- Http.collectZIO[Request]{case _ => Ref.make(session_map)}
@@ -35,27 +35,61 @@ object DBServer extends App {
   implicit def chunktobytearr(c: Chunk[Byte]): Array[Byte] = c.toArray
 
   def addNewSessionToken(
-    m: Ref[Map[PubKey, SessionToken]]
+    m: Ref[SessionMap]
   ): Http[Console, Throwable, Request, Response] = Http.collectZIO[Request] {
     case req =>
       req match {
         case Method.POST -> !! / "create_session" =>
           for {
             smap <- m.get
+
+            _ <- putStrLn(smap.toString())
             pubkey <- req.getBodyAsString
-            token = create_session_token(pubkey)
-            curr_tokens = smap.getOrElse(pubkey, token._1)
-            updatedsmap = smap.updated(pubkey, curr_tokens)
-            _ <- m.set(updatedsmap)
-            _ <- putStrLn( updatedsmap.toString())
+            strippedpubkey = stripPublicKeyText(pubkey)
+            //get session token as well as its cyphertext
+            existingToken = smap.get(strippedpubkey)
+            token = create_session_token(pubkey,existingToken)
+            curr_tokens = smap.getOrElse(strippedpubkey, token._1)
+            //persist session token secret server side
+            //updatedsmap = smap.updated(pubkey, curr_tokens)
+            _ = smap.update(strippedpubkey,curr_tokens)
+            _ <- m.set(smap)
+            _ <- putStrLn( smap.toString())
           } yield {
+            //return the token cyphertext
+            //in order to verify client calls
+            //we must only ever return the cyphertext
+            //so that we can ensure only the user who
+            //has the private key will know the session id
             Response.text(token._2)
+          }
+        case Method.POST -> !! / "verify_session" =>
+          for {
+            body <- req.getBodyAsString
+            json = body.fromJson[VerifySession]
+//            _ <- putStrLn(body)
+//            _ <- putStrLn(json.toString)
+
+            smap <- m.get
+
+            if json.isRight
+            vses = json.right.get
+            t = smap.get(stripPublicKeyText(vses.publickey))
+            _ <- putStrLn(s"vsestoken ${vses.token}")
+            resp = ValidSession(stripPublicKeyText(vses.publickey),t.exists(_ == vses.token))
+            _ <- putStrLn(t.toString)
+            _<- putStrLn(resp.toString)
+          }yield {
+              Response.text(resp.toJson)
           }
       }
 
   }
-
-  def create_session_token(pubKey: PubKey): (SessionToken, EncryptedSessionToken) = {
+  //We create a session token that we keep secret on the server side, as well as that token
+  //encrypted with the users pubkey
+  def create_session_token(pubKey: PubKey,existingToken:Option[SessionToken] = None): (SessionToken, EncryptedSessionToken) = {
+    //beware this code is a bit brittle due to having to tightly
+    //align formatting over serialized data.
     val rsaKeyFactory = KeyFactory.getInstance("RSA")
     val bytes = Base64.getDecoder.decode(
       stripPublicKeyText(pubKey)
@@ -64,7 +98,7 @@ object DBServer extends App {
     val cipher = Cipher.getInstance("RSA")
     val public_key_object = rsaPublicKey
     cipher.init(Cipher.ENCRYPT_MODE, public_key_object)
-    val session_token = generate_random_session_token()
+    val session_token = existingToken.getOrElse(generate_random_session_token())
     val encrypted_session_token_bytes =
       cipher.doFinal(Base64.getDecoder.decode(Base64.getEncoder.encode(session_token.getBytes())))
     val encodedMessage = Base64.getEncoder().encodeToString(encrypted_session_token_bytes)
@@ -82,8 +116,8 @@ object DBServer extends App {
   }
 
   def generate_random_session_token(): SessionToken =
-    (0 to 16).foldLeft("") { (a, c) =>
-      a + (scala.math.random() * 10).floor.toString
+    (0 to 128).foldLeft("") { (a, c) =>
+      a + (scala.math.random() * 16).floor.toInt.toHexString
     }
 
   def stripCertText(certText: String): String =
